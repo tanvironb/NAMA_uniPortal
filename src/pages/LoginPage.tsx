@@ -28,56 +28,173 @@ export default function LoginPage() {
       });
 
       if (error) throw error;
+      if (!data.user) throw new Error("Login failed");
 
-      if (data.user) {
-        // Check admin status first via RPC
-        const { data: isAdminResult, error: adminError } = await supabase.rpc('is_admin');
-        
-        if (!adminError && isAdminResult) {
-          navigate('/admin');
-          return;
-        }
+      console.log("LOGIN USER ID:", data.user.id);
 
-        // For non-admins, check student status
-        const { data: profile, error: profileError } = await supabase
-          .from('students')
-          .select('status')
-          .eq('user_id', data.user.id)
-          .single();
+      const meta = data.user.user_metadata || {};
+      console.log("user metadata:", meta);
 
-        if (profileError && profileError.code === 'PGRST116') {
-          // No profile row yet - needs to register
-          navigate('/register');
-          return;
-        }
+      let selectedUniversityIds: string[] = Array.isArray(meta.selected_university_ids)
+        ? meta.selected_university_ids
+        : [];
 
-        if (profileError) {
-          console.error('Error fetching profile:', profileError);
-          navigate('/register');
-          return;
-        }
+      if (selectedUniversityIds.length === 0 && Array.isArray(meta.selected_universities)) {
+        const selectedUniversityNames = meta.selected_universities as string[];
+        console.log("Old university names found in metadata:", selectedUniversityNames);
 
-        // Redirect based on student status
-        if (profile?.status === 'approved') {
-          navigate('/student');
-        } else if (profile?.status === 'rejected') {
-          navigate('/rejected');
+        const { data: matchedUniversities, error: matchError } = await supabase
+          .from("universities")
+          .select("*");
+
+        if (matchError) {
+          console.error("Matching error:", matchError);
         } else {
-          navigate('/pending');
+          const matchedRows = ((matchedUniversities ?? []) as any[]).filter((row) =>
+            selectedUniversityNames.includes(row.university)
+          );
+
+          const uniqueMap = new Map<string, string>();
+
+          for (const row of matchedRows) {
+            if (!row?.university || !row?.id) continue;
+            if (!uniqueMap.has(row.university)) {
+              uniqueMap.set(row.university, row.id);
+            }
+          }
+
+          selectedUniversityIds = Array.from(uniqueMap.values());
         }
       }
-    } catch (error: any) {
-      console.error('Login error:', error);
 
-      const rawMsg = (error?.message || '').toLowerCase();
-      const providerDisabled = rawMsg.includes('email logins are disabled') || error?.status === 422 || error?.error_code === 'email_provider_disabled';
+      console.log("selectedUniversityIds:", selectedUniversityIds);
+
+      const { data: isAdminResult, error: adminError } = await supabase.rpc("is_admin");
+
+      if (!adminError && isAdminResult) {
+        navigate("/admin");
+        return;
+      }
+
+      let { data: profile, error: profileError } = await supabase
+        .from("students")
+        .select("status")
+        .eq("user_id", data.user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error("Error fetching profile:", profileError);
+        toast({
+          title: "Login failed",
+          description: profileError.message || "Could not load your profile.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!profile) {
+        const { error: createStudentError } = await supabase.from("students").insert({
+          user_id: data.user.id,
+          first_name: meta.first_name || "",
+          last_name: meta.last_name || "",
+          email: data.user.email || email,
+          nationality: meta.nationality || "",
+          gender: meta.gender || "",
+          level_of_study: meta.level_of_study || "",
+          preferred_country: meta.preferred_country || "",
+          field_of_study: meta.field_of_study || "",
+          status: "pending",
+        });
+
+        if (createStudentError) {
+          console.error("Error creating student profile:", createStudentError);
+          toast({
+            title: "Login failed",
+            description: createStudentError.message || "Could not create student profile.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const { data: newProfile, error: newProfileError } = await supabase
+          .from("students")
+          .select("status")
+          .eq("user_id", data.user.id)
+          .maybeSingle();
+
+        if (newProfileError) {
+          console.error("Error fetching new profile:", newProfileError);
+          toast({
+            title: "Login failed",
+            description: "Could not load your student profile.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        profile = newProfile;
+      }
+
+      if (selectedUniversityIds.length > 0) {
+        console.log("Rebuilding university selections for student:", data.user.id);
+
+        const { error: deleteSelectionsError } = await supabase
+          .from("student_university_selections")
+          .delete()
+          .eq("student_id", data.user.id);
+
+        console.log("deleteSelectionsError:", deleteSelectionsError);
+
+        const payload = selectedUniversityIds.map((universityId) => ({
+          student_id: data.user.id,
+          university_id: universityId,
+        }));
+
+        console.log("Inserting selections:", payload);
+
+        const { error: insertSelectionsError } = await (supabase
+          .from("student_university_selections") as any)
+          .insert(payload as any);
+
+        console.log("insertSelectionsError:", insertSelectionsError);
+
+        if (insertSelectionsError) {
+          console.error("Error inserting university selections:", insertSelectionsError);
+        } else {
+          console.log("University selections inserted successfully");
+        }
+      }
+
+      if (profile?.status === "approved") {
+        navigate("/student");
+      } else if (profile?.status === "rejected") {
+        navigate("/rejected");
+      } else {
+        navigate("/pending");
+      }
+    } catch (error: any) {
+      console.error("Login error:", error);
+
+      const rawMsg = (error?.message || "").toLowerCase();
+      const providerDisabled =
+        rawMsg.includes("email logins are disabled") ||
+        error?.status === 422 ||
+        error?.error_code === "email_provider_disabled";
+
+      const emailNotConfirmed = rawMsg.includes("email not confirmed");
 
       toast({
-        title: providerDisabled ? 'Email/password sign-in is disabled' : 'Login failed',
+        title: providerDisabled
+          ? "Email/password sign-in is disabled"
+          : emailNotConfirmed
+          ? "Please verify your email"
+          : "Login failed",
         description: providerDisabled
-          ? 'Enable the Email provider in Supabase Auth settings, run the admin seed, then try again.'
-          : 'Invalid email or password.',
-        variant: 'destructive',
+          ? "Enable the Email provider in Supabase Auth settings, then try again."
+          : emailNotConfirmed
+          ? "Check your inbox and verify your email before signing in."
+          : "Invalid email or password.",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -88,14 +205,15 @@ export default function LoginPage() {
     <div className="wizard-container">
       <div className="max-w-md mx-auto w-full">
         <Link to="/" aria-label="Go to homepage">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="sm"
             className="mb-4 text-muted-foreground hover:text-foreground"
           >
             ← Home
           </Button>
         </Link>
+
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -104,10 +222,9 @@ export default function LoginPage() {
           <Card className="wizard-card shadow-glow">
             <CardHeader className="text-center">
               <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
-              <CardDescription>
-                Sign in to your account
-              </CardDescription>
+              <CardDescription>Sign in to your account</CardDescription>
             </CardHeader>
+
             <CardContent>
               <form onSubmit={handleLogin} className="space-y-6">
                 <div className="space-y-2">

@@ -33,6 +33,7 @@ interface FormData {
   email: string;
   password: string;
   confirmPassword: string;
+  fullName: string;
   firstName: string;
   lastName: string;
   nationality: string;
@@ -55,8 +56,9 @@ export default function RegisterWizard() {
 
   const [level, setLevel] = useState("");
   useEffect(() => {
-   console.log("Selected level:", level);
+    console.log("Selected level:", level);
   }, [level]);
+
   const [country, setCountry] = useState("");
   const [field, setField] = useState("");
   const [selectedUnis, setSelectedUnis] = useState<string[]>([]);
@@ -65,6 +67,7 @@ export default function RegisterWizard() {
     email: "",
     password: "",
     confirmPassword: "",
+    fullName: "",
     firstName: "",
     lastName: "",
     nationality: "",
@@ -82,35 +85,34 @@ export default function RegisterWizard() {
   };
 
   const { data: countriesData = [], isLoading: countriesLoading } = useQuery({
-  queryKey: ["student-countries", level],
-  queryFn: async () => {
-    let query = supabase
-      .from("universities")
-      .select("country")
-      .not("country", "is", null);
-    if (level === "Master’s Degree") {
-      query = query.in("level_of_study", ["Master’s Degree", "Master"]);
-    }
-    else if (level) {
-      query = query.eq("level_of_study", level);
-    }
+    queryKey: ["student-countries", level],
+    queryFn: async () => {
+      let query = supabase
+        .from("universities")
+        .select("country")
+        .not("country", "is", null);
 
-    const { data, error } = await query;
-    console.log("Countries query level:", level);
-    console.log("Countries query raw data:", data);
-    console.log("Countries query error:", error);
-    if (error) throw error;
+      if (level === "Master’s Degree") {
+        query = query.in("level_of_study", ["Master’s Degree", "Master"]);
+      } else if (level) {
+        query = query.eq("level_of_study", level);
+      }
 
-    const uniqueCountries = Array.from(
-      new Set((data ?? []).map((item) => item.country).filter(Boolean))
-    ) as string[];
-    console.log("Unique countries:", uniqueCountries);
-    console.log("Rendered countriesData:", countriesData);
-    console.log("Current selected level:", level);
-    return uniqueCountries.sort();
-  },
-  enabled: !!level,
-});
+      const { data, error } = await query;
+      console.log("Countries query level:", level);
+      console.log("Countries query raw data:", data);
+      console.log("Countries query error:", error);
+
+      if (error) throw error;
+
+      const uniqueCountries = Array.from(
+        new Set((data ?? []).map((item) => item.country).filter(Boolean))
+      ) as string[];
+
+      return uniqueCountries.sort();
+    },
+    enabled: !!level,
+  });
 
   const { data: fieldsData = [], isLoading: fieldsLoading } = useQuery({
     queryKey: ["student-fields", level, country],
@@ -157,18 +159,18 @@ export default function RegisterWizard() {
     enabled: !!level && !!country && !!field,
   });
 
-const availableUniversities = useMemo(() => {
-  const rows = universitiesData ?? [];
-  const uniqueMap = new Map<string, University>();
+  const availableUniversities = useMemo(() => {
+    const rows = universitiesData ?? [];
+    const uniqueMap = new Map<string, University>();
 
-  for (const row of rows) {
-    if (!uniqueMap.has(row.university)) {
-      uniqueMap.set(row.university, row);
+    for (const row of rows) {
+      if (!uniqueMap.has(row.university)) {
+        uniqueMap.set(row.university, row);
+      }
     }
-  }
 
-  return Array.from(uniqueMap.values());
-}, [universitiesData]);
+    return Array.from(uniqueMap.values());
+  }, [universitiesData]);
 
   useEffect(() => {
     setField("");
@@ -231,7 +233,13 @@ const availableUniversities = useMemo(() => {
     }
 
     if (currentStep === 2) {
-      if (!formData.firstName || !formData.lastName || !formData.nationality || !formData.gender) {
+      if (
+        !formData.fullName ||
+        !formData.firstName ||
+        !formData.lastName ||
+        !formData.nationality ||
+        !formData.gender
+      ) {
         toast({
           title: "Missing fields",
           description: "Please complete your personal information before continuing.",
@@ -272,13 +280,15 @@ const availableUniversities = useMemo(() => {
     setLoading(true);
 
     try {
-      console.log("selectedUnisbefore signup:", selectedUnis);
+      console.log("selectedUnis before signup:", selectedUnis);
+
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
           emailRedirectTo: "http://localhost:8081/login",
           data: {
+            full_name: formData.fullName,
             first_name: formData.firstName,
             last_name: formData.lastName,
             nationality: formData.nationality,
@@ -293,6 +303,22 @@ const availableUniversities = useMemo(() => {
 
       if (signUpError) throw signUpError;
       if (!signUpData.user) throw new Error("User creation failed");
+
+      const { error: studentError } = await supabase.from("students").insert({
+        user_id: signUpData.user.id,
+        full_name: formData.fullName,
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        email: formData.email,
+        nationality: formData.nationality,
+        gender: formData.gender,
+        level_of_study: level,
+        preferred_country: country,
+        field_of_study: field,
+        status: "pending",
+      });
+
+      if (studentError) throw studentError;
 
       toast({
         title: "Please verify your email",
@@ -363,6 +389,18 @@ const availableUniversities = useMemo(() => {
       case 2:
         return (
           <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="fullName">Full Name</Label>
+              <Input
+                id="fullName"
+                value={formData.fullName}
+                onChange={(e) => updateFormData("fullName", e.target.value)}
+                placeholder="Full name"
+                required
+                disabled={loading}
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="firstName">First Name</Label>
@@ -404,6 +442,7 @@ const availableUniversities = useMemo(() => {
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
+
                 <PopoverContent className="w-full p-0">
                   <Command>
                     <CommandInput placeholder="Search countries..." />
@@ -534,9 +573,7 @@ const availableUniversities = useMemo(() => {
               <div className="flex flex-wrap gap-2">
                 {selectedUnis.length > 0 ? (
                   selectedUnis.map((selectedUniversityid) => {
-                    const uni = availableUniversities.find(
-                      (u) => u.id === selectedUniversityid
-                    );
+                    const uni = availableUniversities.find((u) => u.id === selectedUniversityid);
                     if (!uni) return null;
 
                     return (
@@ -559,37 +596,30 @@ const availableUniversities = useMemo(() => {
                   </p>
                 ) : (
                   availableUniversities.map((uni) => (
-                    <div
-                      key={uni.id}
-                      className="flex items-start space-x-3 rounded-md border p-3"
-                    >
+                    <div key={uni.id} className="flex items-start space-x-3 rounded-md border p-3">
                       <Checkbox
                         id={uni.id}
                         checked={selectedUnis.includes(uni.id)}
                         onCheckedChange={() => handleUniversityToggle(uni.id)}
                         disabled={
-                          loading ||
-                          (!selectedUnis.includes(uni.id) && selectedUnis.length >= 3)
+                          loading || (!selectedUnis.includes(uni.id) && selectedUnis.length >= 3)
                         }
                       />
 
                       <div className="grid gap-1.5 leading-none">
-  <Label htmlFor={uni.university} className="font-medium cursor-pointer">
-    {uni.university}
-  </Label>
+                        <Label htmlFor={uni.university} className="font-medium cursor-pointer">
+                          {uni.university}
+                        </Label>
 
-  <div className="text-xs text-muted-foreground space-y-1">
-    <p>
-      {uni.country ?? "Unknown country"} • {uni.field_of_study ?? "Unknown field"}
-    </p>
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          <p>
+                            {uni.country ?? "Unknown country"} •{" "}
+                            {uni.field_of_study ?? "Unknown field"}
+                          </p>
 
-    {uni.ranking && (
-      <p className="text-primary font-medium">
-        #{uni.ranking}
-      </p>
-    )}
-  </div>
-</div>
+                          {uni.ranking && <p className="text-primary font-medium">#{uni.ranking}</p>}
+                        </div>
+                      </div>
                     </div>
                   ))
                 )}
@@ -639,8 +669,8 @@ const availableUniversities = useMemo(() => {
                         step === currentStep
                           ? "bg-primary text-primary-foreground"
                           : step < currentStep
-                          ? "bg-primary/20 text-primary"
-                          : "bg-muted text-muted-foreground"
+                            ? "bg-primary/20 text-primary"
+                            : "bg-muted text-muted-foreground"
                       )}
                     >
                       {step}

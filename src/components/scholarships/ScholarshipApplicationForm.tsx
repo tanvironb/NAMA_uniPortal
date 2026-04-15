@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { useQuery } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
@@ -24,13 +25,13 @@ const applicationSchema = z.object({
   gender: z.string().min(1, "Gender is required"),
   dateOfBirth: z.string().min(1, "Date of birth is required"),
   placeOfBirth: z.string().min(1, "Place of birth is required"),
-  
+
   email: z.string().email("Valid email is required"),
   phoneNumber: z.string().min(1, "Phone number is required"),
   contactCountry: z.string().min(1, "Country is required"),
   city: z.string().min(1, "City is required"),
   residenceAddress: z.string().min(1, "Residence address is required"),
-  
+
   educationLevel: z.string().min(1, "Education level is required"),
   educationField: z.string().min(1, "Field/Major is required"),
   institutionName: z.string().min(1, "Institution name is required"),
@@ -47,6 +48,7 @@ interface ScholarshipApplicationFormProps {
   courseTitle: string;
   levelOfStudy: string;
   country: string;
+  courseDuration: string;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -56,6 +58,7 @@ export function ScholarshipApplicationForm({
   courseTitle,
   levelOfStudy,
   country,
+  courseDuration,
   onClose,
   onSuccess,
 }: ScholarshipApplicationFormProps) {
@@ -63,10 +66,74 @@ export function ScholarshipApplicationForm({
   const [transcriptFile, setTranscriptFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string>("");
 
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<ApplicationFormData>({
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<ApplicationFormData>({
     resolver: zodResolver(applicationSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      passportId: "",
+      nationality: "",
+      gender: "",
+      dateOfBirth: "",
+      placeOfBirth: "",
+      email: "",
+      phoneNumber: "",
+      contactCountry: "",
+      city: "",
+      residenceAddress: "",
+      educationLevel: "",
+      educationField: "",
+      institutionName: "",
+      institutionCountry: "",
+      yearEntered: "",
+      yearGraduated: "",
+      finalGrade: "",
+    },
   });
 
+  const watchedNationality = watch("nationality");
+  const watchedGender = watch("gender");
+  const watchedContactCountry = watch("contactCountry");
+  const watchedEducationLevel = watch("educationLevel");
+  const watchedInstitutionCountry = watch("institutionCountry");
+
+  const { data: studentProfile } = useQuery({
+    queryKey: ["student-profile-for-application"],
+    queryFn: async () => {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) throw userError;
+      if (!user) throw new Error("Not authenticated");
+
+      const { data, error } = await supabase
+        .from("students")
+        .select("first_name, last_name, email, nationality, gender")
+        .eq("user_id", user.id)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  useEffect(() => {
+    if (studentProfile) {
+      setValue("firstName", studentProfile.first_name || "");
+      setValue("lastName", studentProfile.last_name || "");
+      setValue("email", studentProfile.email || "");
+      setValue("nationality", studentProfile.nationality || "");
+      setValue("gender", studentProfile.gender || "");
+    }
+  }, [studentProfile, setValue]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -99,10 +166,13 @@ export function ScholarshipApplicationForm({
       toast.error("Please upload a transcript");
       return;
     }
-    
+
     setIsSubmitting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       if (!user) {
         toast.error("You must be logged in to submit an application");
         return;
@@ -110,7 +180,6 @@ export function ScholarshipApplicationForm({
 
       let transcriptPath = null;
 
-      // Upload transcript if provided
       if (transcriptFile) {
         const fileExt = transcriptFile.name.split(".").pop();
         const fileName = `${user.id}/${Date.now()}.${fileExt}`;
@@ -129,7 +198,6 @@ export function ScholarshipApplicationForm({
         transcriptPath = filePath;
       }
 
-      // Create application
       const { error: insertError } = await supabase
         .from("scholarship_applications")
         .insert({
@@ -138,6 +206,7 @@ export function ScholarshipApplicationForm({
           course_title: courseTitle,
           level_of_study: levelOfStudy,
           country: country,
+          course_duration: courseDuration,
           full_name: `${data.firstName} ${data.lastName}`,
           passport_id: data.passportId,
           nationality: data.nationality,
@@ -179,7 +248,6 @@ export function ScholarshipApplicationForm({
   return (
     <div className="max-h-[80vh] overflow-y-auto">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Read-only course info */}
         <div className="space-y-2">
           <h3 className="font-semibold">Application Details</h3>
           <div className="flex flex-wrap gap-2">
@@ -187,13 +255,13 @@ export function ScholarshipApplicationForm({
             <Badge variant="secondary">{courseTitle}</Badge>
             <Badge variant="secondary">{levelOfStudy}</Badge>
             <Badge variant="secondary">{country}</Badge>
+            <Badge variant="secondary">{courseDuration}</Badge>
           </div>
         </div>
 
-        {/* Personal Information */}
         <div className="space-y-4">
           <h3 className="font-semibold border-b pb-2">Personal Information</h3>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="firstName">First Name *</Label>
@@ -215,7 +283,10 @@ export function ScholarshipApplicationForm({
 
             <div>
               <Label htmlFor="nationality">Nationality *</Label>
-              <Select onValueChange={(value) => setValue("nationality", value)}>
+              <Select
+                value={watchedNationality || ""}
+                onValueChange={(value) => setValue("nationality", value, { shouldValidate: true })}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select nationality" />
                 </SelectTrigger>
@@ -232,7 +303,10 @@ export function ScholarshipApplicationForm({
 
             <div>
               <Label htmlFor="gender">Gender *</Label>
-              <Select onValueChange={(value) => setValue("gender", value)}>
+              <Select
+                value={watchedGender || ""}
+                onValueChange={(value) => setValue("gender", value, { shouldValidate: true })}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select gender" />
                 </SelectTrigger>
@@ -259,10 +333,9 @@ export function ScholarshipApplicationForm({
           </div>
         </div>
 
-        {/* Contact Information */}
         <div className="space-y-4">
           <h3 className="font-semibold border-b pb-2">Contact Information</h3>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <Label htmlFor="email">Email *</Label>
@@ -278,7 +351,10 @@ export function ScholarshipApplicationForm({
 
             <div>
               <Label htmlFor="contactCountry">Country *</Label>
-              <Select onValueChange={(value) => setValue("contactCountry", value)}>
+              <Select
+                value={watchedContactCountry || ""}
+                onValueChange={(value) => setValue("contactCountry", value, { shouldValidate: true })}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select country" />
                 </SelectTrigger>
@@ -307,14 +383,16 @@ export function ScholarshipApplicationForm({
           </div>
         </div>
 
-        {/* Highest Education */}
         <div className="space-y-4">
           <h3 className="font-semibold border-b pb-2">Highest Education</h3>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="educationLevel">Study Level *</Label>
-              <Select onValueChange={(value) => setValue("educationLevel", value)}>
+              <Select
+                value={watchedEducationLevel || ""}
+                onValueChange={(value) => setValue("educationLevel", value, { shouldValidate: true })}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select level" />
                 </SelectTrigger>
@@ -344,7 +422,10 @@ export function ScholarshipApplicationForm({
 
             <div>
               <Label htmlFor="institutionCountry">Institution Country *</Label>
-              <Select onValueChange={(value) => setValue("institutionCountry", value)}>
+              <Select
+                value={watchedInstitutionCountry || ""}
+                onValueChange={(value) => setValue("institutionCountry", value, { shouldValidate: true })}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select country" />
                 </SelectTrigger>
@@ -412,7 +493,6 @@ export function ScholarshipApplicationForm({
           </div>
         </div>
 
-        {/* Actions */}
         <div className="flex gap-4 justify-end pt-4 border-t">
           <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
             Cancel

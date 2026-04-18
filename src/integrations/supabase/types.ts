@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -216,6 +216,7 @@ export type Database = {
           city: string | null
           contact_country: string | null
           country: string
+          course_duration: string | null
           course_title: string
           created_at: string | null
           date_of_birth: string | null
@@ -248,6 +249,7 @@ export type Database = {
           city?: string | null
           contact_country?: string | null
           country: string
+          course_duration?: string | null
           course_title: string
           created_at?: string | null
           date_of_birth?: string | null
@@ -280,6 +282,7 @@ export type Database = {
           city?: string | null
           contact_country?: string | null
           country?: string
+          course_duration?: string | null
           course_title?: string
           created_at?: string | null
           date_of_birth?: string | null
@@ -397,27 +400,39 @@ export type Database = {
       }
       student_university_selections: {
         Row: {
-          country: string
           created_at: string | null
           id: string
           student_id: string
-          university_name: string
+          university_id: string
         }
         Insert: {
-          country: string
           created_at?: string | null
           id?: string
           student_id: string
-          university_name: string
+          university_id: string
         }
         Update: {
-          country?: string
           created_at?: string | null
           id?: string
           student_id?: string
-          university_name?: string
+          university_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_student_university_selections_university"
+            columns: ["university_id"]
+            isOneToOne: false
+            referencedRelation: "universities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_university"
+            columns: ["university_id"]
+            isOneToOne: false
+            referencedRelation: "universities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       students: {
         Row: {
@@ -425,6 +440,7 @@ export type Database = {
           email: string
           field_of_study: string
           first_name: string
+          full_name: string | null
           gender: string
           last_name: string
           level_of_study: string
@@ -438,6 +454,7 @@ export type Database = {
           email: string
           field_of_study: string
           first_name: string
+          full_name?: string | null
           gender: string
           last_name: string
           level_of_study: string
@@ -451,6 +468,7 @@ export type Database = {
           email?: string
           field_of_study?: string
           first_name?: string
+          full_name?: string | null
           gender?: string
           last_name?: string
           level_of_study?: string
@@ -472,6 +490,7 @@ export type Database = {
           duration: string | null
           entry_requirement: string | null
           field_of_study: string | null
+          id: string
           international_student_registration_and_admin_fees: string | null
           level_of_study: string | null
           ranking: string | null
@@ -493,6 +512,7 @@ export type Database = {
           duration?: string | null
           entry_requirement?: string | null
           field_of_study?: string | null
+          id?: string
           international_student_registration_and_admin_fees?: string | null
           level_of_study?: string | null
           ranking?: string | null
@@ -514,6 +534,7 @@ export type Database = {
           duration?: string | null
           entry_requirement?: string | null
           field_of_study?: string | null
+          id?: string
           international_student_registration_and_admin_fees?: string | null
           level_of_study?: string | null
           ranking?: string | null

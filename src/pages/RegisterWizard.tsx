@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
@@ -55,10 +54,6 @@ export default function RegisterWizard() {
   const [nationalityOpen, setNationalityOpen] = useState(false);
 
   const [level, setLevel] = useState("");
-  useEffect(() => {
-    console.log("Selected level:", level);
-  }, [level]);
-
   const [country, setCountry] = useState("");
   const [field, setField] = useState("");
   const [selectedUnis, setSelectedUnis] = useState<string[]>([]);
@@ -92,17 +87,15 @@ export default function RegisterWizard() {
         .select("country")
         .not("country", "is", null);
 
-      if (level === "Master’s Degree") {
-        query = query.in("level_of_study", ["Master’s Degree", "Master"]);
+      if (level === "Master's Degree") {
+        query = query.in("level_of_study", ["Master's Degree", "Master’s Degree", "Master"]);
+      } else if (level === "Bachelor's Degree") {
+        query = query.in("level_of_study", ["Bachelor's Degree", "Bachelor’s Degree", "Bachelor", "Undergraduate", "Bachelors Degree"]);
       } else if (level) {
         query = query.eq("level_of_study", level);
       }
 
       const { data, error } = await query;
-      console.log("Countries query level:", level);
-      console.log("Countries query raw data:", data);
-      console.log("Countries query error:", error);
-
       if (error) throw error;
 
       const uniqueCountries = Array.from(
@@ -126,7 +119,6 @@ export default function RegisterWizard() {
       if (country) query = query.eq("country", country);
 
       const { data, error } = await query;
-
       if (error) throw error;
 
       const uniqueFields = Array.from(
@@ -151,10 +143,9 @@ export default function RegisterWizard() {
       if (field) query = query.eq("field_of_study", field);
 
       const { data, error } = await query;
-
       if (error) throw error;
 
-      return (data ?? []) as unknown as University[];
+      return (data ?? []) as University[];
     },
     enabled: !!level && !!country && !!field,
   });
@@ -199,10 +190,10 @@ export default function RegisterWizard() {
     setSelectedUnis([]);
   };
 
-  const handleUniversityToggle = (universityid: string) => {
+  const handleUniversityToggle = (universityId: string) => {
     setSelectedUnis((prev) => {
-      if (prev.includes(universityid)) {
-        return prev.filter((id) => id !== universityid);
+      if (prev.includes(universityId)) {
+        return prev.filter((id) => id !== universityId);
       }
 
       if (prev.length >= 3) {
@@ -214,7 +205,7 @@ export default function RegisterWizard() {
         return prev;
       }
 
-      return [...prev, universityid];
+      return [...prev, universityId];
     });
   };
 
@@ -226,6 +217,15 @@ export default function RegisterWizard() {
         toast({
           title: "Missing fields",
           description: "Please complete your account details before continuing.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (formData.password !== formData.confirmPassword) {
+        toast({
+          title: "Password mismatch",
+          description: "Passwords do not match. Please try again.",
           variant: "destructive",
         });
         return;
@@ -249,11 +249,15 @@ export default function RegisterWizard() {
       }
     }
 
-    if (currentStep < 3) setCurrentStep((prev) => prev + 1);
+    if (currentStep < 3) {
+      setCurrentStep((prev) => prev + 1);
+    }
   };
 
   const prevStep = () => {
-    if (currentStep > 1) setCurrentStep((prev) => prev - 1);
+    if (currentStep > 1) {
+      setCurrentStep((prev) => prev - 1);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -280,19 +284,21 @@ export default function RegisterWizard() {
     setLoading(true);
 
     try {
-      console.log("selectedUnis before signup:", selectedUnis);
+      await supabase.auth.signOut();
+
+      const normalizedGender =formData.gender;
 
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
-          emailRedirectTo: "https://uni-scholarship.namafoundation.org/login",
+          emailRedirectTo: "http://localhost:8081/login",
           data: {
             full_name: formData.fullName,
             first_name: formData.firstName,
             last_name: formData.lastName,
             nationality: formData.nationality,
-            gender: formData.gender,
+            gender: normalizedGender,
             level_of_study: level,
             preferred_country: country,
             field_of_study: field,
@@ -301,22 +307,29 @@ export default function RegisterWizard() {
         },
       });
 
+      console.log("signUpData:", signUpData);
+      console.log("signUpError:", signUpError);
+
       if (signUpError) throw signUpError;
       if (!signUpData.user) throw new Error("User creation failed");
 
-      const { error: studentError } = await supabase.from("students").insert({
-        user_id: signUpData.user.id,
-        full_name: formData.fullName,
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        email: formData.email,
-        nationality: formData.nationality,
-        gender: formData.gender,
-        level_of_study: level,
-        preferred_country: country,
-        field_of_study: field,
-        status: "pending",
-      });
+      const { error: studentError } = await supabase.from("students").insert([
+        {
+          user_id: signUpData.user.id,
+          full_name: formData.fullName,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          email: formData.email,
+          nationality: formData.nationality,
+          gender: normalizedGender,
+          level_of_study: level,
+          preferred_country: country,
+          field_of_study: field,
+          status: "pending",
+        },
+      ]);
+
+      console.log("studentError:", studentError);
 
       if (studentError) throw studentError;
 
@@ -329,10 +342,15 @@ export default function RegisterWizard() {
       navigate("/login");
     } catch (error: any) {
       console.error("Registration error:", error);
+      console.error("JSON error:", JSON.stringify(error, null, 2));
 
       toast({
         title: "Registration failed",
-        description: error?.message || "An error occurred during registration.",
+        description:
+          error?.message ||
+          error?.error_description ||
+          error?.details ||
+          JSON.stringify(error),
         variant: "destructive",
       });
     } finally {
@@ -442,7 +460,6 @@ export default function RegisterWizard() {
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-
                 <PopoverContent className="w-full p-0">
                   <Command>
                     <CommandInput placeholder="Search countries..." />
@@ -512,7 +529,7 @@ export default function RegisterWizard() {
                   <SelectValue placeholder="Select level of study" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Bachelor’s Degree">Bachelor’s Degree</SelectItem>
+                  <SelectItem value="Bachelor's Degree">Bachelor’s Degree</SelectItem>
                   <SelectItem value="Master's Degree">Master's Degree</SelectItem>
                   <SelectItem value="PhD">PhD</SelectItem>
                   <SelectItem value="Diploma">Diploma</SelectItem>
@@ -530,9 +547,7 @@ export default function RegisterWizard() {
               >
                 <SelectTrigger>
                   <SelectValue
-                    placeholder={
-                      countriesLoading ? "Loading countries..." : "Select preferred country"
-                    }
+                    placeholder={countriesLoading ? "Loading countries..." : "Select preferred country"}
                   />
                 </SelectTrigger>
                 <SelectContent>
@@ -572,12 +587,12 @@ export default function RegisterWizard() {
 
               <div className="flex flex-wrap gap-2">
                 {selectedUnis.length > 0 ? (
-                  selectedUnis.map((selectedUniversityid) => {
-                    const uni = availableUniversities.find((u) => u.id === selectedUniversityid);
+                  selectedUnis.map((selectedUniversityId) => {
+                    const uni = availableUniversities.find((u) => u.id === selectedUniversityId);
                     if (!uni) return null;
 
                     return (
-                      <Badge key={selectedUniversityid} variant="secondary" className="px-3 py-1">
+                      <Badge key={selectedUniversityId} variant="secondary" className="px-3 py-1">
                         {uni.id}
                       </Badge>
                     );
@@ -602,22 +617,24 @@ export default function RegisterWizard() {
                         checked={selectedUnis.includes(uni.id)}
                         onCheckedChange={() => handleUniversityToggle(uni.id)}
                         disabled={
-                          loading || (!selectedUnis.includes(uni.id) && selectedUnis.length >= 3)
+                          loading ||
+                          (!selectedUnis.includes(uni.id) && selectedUnis.length >= 3)
                         }
                       />
 
                       <div className="grid gap-1.5 leading-none">
-                        <Label htmlFor={uni.university} className="font-medium cursor-pointer">
+                        <Label htmlFor={uni.id} className="font-medium cursor-pointer">
                           {uni.university}
                         </Label>
 
                         <div className="text-xs text-muted-foreground space-y-1">
                           <p>
-                            {uni.country ?? "Unknown country"} •{" "}
-                            {uni.field_of_study ?? "Unknown field"}
+                            {uni.country ?? "Unknown country"} • {uni.field_of_study ?? "Unknown field"}
                           </p>
 
-                          {uni.ranking && <p className="text-primary font-medium">#{uni.ranking}</p>}
+                          {uni.ranking && (
+                            <p className="text-primary font-medium">#{uni.ranking}</p>
+                          )}
                         </div>
                       </div>
                     </div>

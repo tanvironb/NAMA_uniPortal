@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,236 +14,319 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
-import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
-import { Users, GraduationCap, Globe, CheckCircle, XCircle, Clock, Search, ChevronLeft, ChevronRight, Shield } from "lucide-react";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Legend,
+  Tooltip,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from "recharts";
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import {
+  Users,
+  GraduationCap,
+  Globe,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Shield,
+} from "lucide-react";
 import ScholarshipsTab from "@/components/admin/ScholarshipsTab";
 import { ScholarshipApplicationsTab } from "@/components/admin/ScholarshipApplicationsTab";
 
-const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent-gold))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--destructive))'];
+const COLORS = [
+  "hsl(var(--primary))",
+  "hsl(var(--accent-gold))",
+  "hsl(var(--success))",
+  "hsl(var(--warning))",
+  "hsl(var(--destructive))",
+];
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // KPI Queries - exact calculations per requirements
   const { data: universityCount, isLoading: universityCountLoading } = useQuery({
-    queryKey: ['admin-university-count'],
+    queryKey: ["admin-university-count"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('universities')
-        .select('university')
-        .not('university', 'is', null);
+        .from("universities")
+        .select("university")
+        .not("university", "is", null);
+
       if (error) throw error;
       return new Set(data.map((u: any) => u.university?.trim()).filter(Boolean)).size;
-    }
+    },
   });
 
   const { data: courseCount, isLoading: courseCountLoading } = useQuery({
-    queryKey: ['admin-course-count'],
+    queryKey: ["admin-course-count"],
     queryFn: async () => {
       const { count, error } = await supabase
-        .from('universities')
-        .select('*', { count: 'exact', head: true });
+        .from("universities")
+        .select("*", { count: "exact", head: true });
+
       if (error) throw error;
       return count || 0;
-    }
+    },
   });
 
   const { data: countryCount, isLoading: countryCountLoading } = useQuery({
-    queryKey: ['admin-country-count'],
+    queryKey: ["admin-country-count"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('universities')
-        .select('country')
-        .not('country', 'is', null);
+        .from("universities")
+        .select("country")
+        .not("country", "is", null);
+
       if (error) throw error;
       return new Set(data.map((u: any) => u.country?.trim()).filter(Boolean)).size;
-    }
+    },
   });
 
-  // Demographics Data - from students table
   const { data: nationalityData, isLoading: nationalityLoading } = useQuery({
-    queryKey: ['admin-nationality-data'],
+    queryKey: ["admin-nationality-data"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('students')
-        .select('nationality')
-        .not('nationality', 'is', null);
+        .from("students")
+        .select("nationality")
+        .not("nationality", "is", null);
+
       if (error) throw error;
-      
+
       const counts = data.reduce((acc: Record<string, number>, student) => {
         acc[student.nationality] = (acc[student.nationality] || 0) + 1;
         return acc;
       }, {});
-      
+
       return Object.entries(counts)
         .map(([name, value]) => ({ name, value }))
         .sort((a, b) => b.value - a.value);
-    }
+    },
   });
 
   const { data: genderData, isLoading: genderLoading } = useQuery({
-    queryKey: ['admin-gender-data'],
+    queryKey: ["admin-gender-data"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('students')
-        .select('gender')
-        .not('gender', 'is', null);
+        .from("students")
+        .select("gender")
+        .not("gender", "is", null);
+
       if (error) throw error;
-      
+
       const counts = data.reduce((acc: Record<string, number>, student) => {
         acc[student.gender] = (acc[student.gender] || 0) + 1;
         return acc;
       }, {});
-      
+
       return Object.entries(counts).map(([name, value]) => ({ name, value }));
-    }
+    },
   });
 
-  // Level of Study Data for Bar Chart
   const { data: levelOfStudyData, isLoading: levelOfStudyLoading } = useQuery({
-    queryKey: ['admin-level-of-study-data'],
+    queryKey: ["admin-level-of-study-data"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('students')
-        .select('level_of_study')
-        .not('level_of_study', 'is', null);
+        .from("students")
+        .select("level_of_study")
+        .not("level_of_study", "is", null);
+
       if (error) throw error;
-      
+
       const counts = data.reduce((acc: Record<string, number>, student) => {
         acc[student.level_of_study] = (acc[student.level_of_study] || 0) + 1;
         return acc;
       }, {});
-      
+
       return Object.entries(counts)
         .map(([name, value]) => ({ name, value }))
         .sort((a, b) => b.value - a.value);
-    }
+    },
   });
 
-  // Pending Applications - from students table
   const [pendingPage, setPendingPage] = useState(0);
   const [selectedPendingStudent, setSelectedPendingStudent] = useState<any>(null);
-  const { data: pendingApplications, isLoading: pendingLoading, refetch: refetchPending } = useQuery({
-    queryKey: ['admin-pending-applications', pendingPage],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('students')
-        .select('user_id, first_name, last_name, email, nationality, gender, level_of_study, preferred_country, field_of_study, created_at')
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
-        .range(pendingPage * 25, (pendingPage + 1) * 25 - 1);
-      if (error) throw error;
-      return data;
-    }
-  });
 
-  // Get university selections for selected student
-  const { data: selectedStudentUniversities } = useQuery({
-    queryKey: ['student-universities', selectedPendingStudent?.user_id],
+  const { data: pendingApplications, isLoading: pendingLoading } = useQuery({
+    queryKey: ["admin-pending-applications", pendingPage],
     queryFn: async () => {
-      if (!selectedPendingStudent?.user_id) return [];
       const { data, error } = await supabase
-        .from('student_university_selections')
-        .select('university_name, country')
-        .eq('student_id', selectedPendingStudent.user_id);
+        .from("students")
+        .select(
+          "user_id, first_name, last_name, email, nationality, gender, level_of_study, preferred_country, field_of_study, created_at"
+        )
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+        .range(pendingPage * 25, (pendingPage + 1) * 25 - 1);
+
       if (error) throw error;
       return data;
     },
-    enabled: !!selectedPendingStudent?.user_id
   });
 
-  // Approve/Reject mutations - update students table
-  const approveMutation = useMutation({
-    mutationFn: async (userId: string) => {
-      const { error } = await supabase
-        .from('students')
-        .update({ status: 'approved' })
-        .eq('user_id', userId);
+  const { data: selectedStudentUniversities } = useQuery({
+    queryKey: ["student-universities", selectedPendingStudent?.user_id],
+    queryFn: async () => {
+      if (!selectedPendingStudent?.user_id) return [];
+
+      const { data, error } = await supabase
+        .from("student_university_selections")
+        .select("university_name, country")
+        .eq("student_id", selectedPendingStudent.user_id);
+
       if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedPendingStudent?.user_id,
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: async (student: any) => {
+      const { error } = await supabase
+        .from("students")
+        .update({ status: "approved" })
+        .eq("user_id", student.user_id);
+
+      if (error) throw error;
+
+      const { error: emailError } = await supabase.functions.invoke("send-status-email", {
+        body: {
+          email: student.email,
+          firstName: student.first_name,
+          lastName: student.last_name,
+          status: "approved",
+        },
+      });
+
+      if (emailError) {
+        console.error("Approval email error:", emailError);
+      }
     },
     onSuccess: () => {
       toast({ title: "Application approved successfully" });
-      queryClient.invalidateQueries({ queryKey: ['admin-pending-applications'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-students'] });
-    }
+      queryClient.invalidateQueries({ queryKey: ["admin-pending-applications"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-students"] });
+    },
+    onError: (error) => {
+      console.error("Approve mutation error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to approve application",
+        variant: "destructive",
+      });
+    },
   });
 
   const rejectMutation = useMutation({
-    mutationFn: async ({ userId, reason }: { userId: string; reason?: string }) => {
+    mutationFn: async (student: any) => {
       const { error } = await supabase
-        .from('students')
-        .update({ status: 'rejected' })
-        .eq('user_id', userId);
+        .from("students")
+        .update({ status: "rejected" })
+        .eq("user_id", student.user_id);
+
       if (error) throw error;
+
+      const { error: emailError } = await supabase.functions.invoke("send-status-email", {
+        body: {
+          email: student.email,
+          firstName: student.first_name,
+          lastName: student.last_name,
+          status: "rejected",
+        },
+      });
+
+      if (emailError) {
+        console.error("Rejection email error:", emailError);
+      }
     },
     onSuccess: () => {
       toast({ title: "Application rejected" });
-      queryClient.invalidateQueries({ queryKey: ['admin-pending-applications'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-students'] });
-    }
+      queryClient.invalidateQueries({ queryKey: ["admin-pending-applications"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-students"] });
+    },
+    onError: (error) => {
+      console.error("Reject mutation error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to reject application",
+        variant: "destructive",
+      });
+    },
   });
 
-  // Students Tab
-  const [studentsStatus, setStudentsStatus] = useState<'approved' | 'rejected'>('approved');
-  const [studentsSearch, setStudentsSearch] = useState('');
+  const [studentsStatus, setStudentsStatus] = useState<"approved" | "rejected">("approved");
+  const [studentsSearch, setStudentsSearch] = useState("");
   const [studentsPage, setStudentsPage] = useState(0);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
 
   const { data: students, isLoading: studentsLoading } = useQuery({
-    queryKey: ['admin-students', studentsStatus, studentsSearch, studentsPage],
+    queryKey: ["admin-students", studentsStatus, studentsSearch, studentsPage],
     queryFn: async () => {
       let query = supabase
-        .from('students')
-        .select('user_id, first_name, last_name, email, nationality, gender, level_of_study, preferred_country, field_of_study, created_at')
-        .eq('status', studentsStatus)
-        .order('created_at', { ascending: false });
+        .from("students")
+        .select(
+          "user_id, first_name, last_name, email, nationality, gender, level_of_study, preferred_country, field_of_study, created_at"
+        )
+        .eq("status", studentsStatus)
+        .order("created_at", { ascending: false });
 
       if (studentsSearch.trim()) {
-        query = query.or(`first_name.ilike.%${studentsSearch}%,last_name.ilike.%${studentsSearch}%,email.ilike.%${studentsSearch}%`);
+        query = query.or(
+          `first_name.ilike.%${studentsSearch}%,last_name.ilike.%${studentsSearch}%,email.ilike.%${studentsSearch}%`
+        );
       }
 
       const { data, error } = await query.range(studentsPage * 25, (studentsPage + 1) * 25 - 1);
-      if (error) throw error;
-      return data;
-    }
-  });
 
-  // Get university selections for selected approved/rejected student
-  const { data: selectedApprovedStudentUniversities } = useQuery({
-    queryKey: ['approved-student-universities', selectedStudent?.user_id],
-    queryFn: async () => {
-      if (!selectedStudent?.user_id) return [];
-      const { data, error } = await supabase
-        .from('student_university_selections')
-        .select('university_name, country')
-        .eq('student_id', selectedStudent.user_id);
       if (error) throw error;
       return data;
     },
-    enabled: !!selectedStudent?.user_id
   });
 
-  // Universities Search
-  const [universitiesSearch, setUniversitiesSearch] = useState('');
+  const { data: selectedApprovedStudentUniversities } = useQuery({
+    queryKey: ["approved-student-universities", selectedStudent?.user_id],
+    queryFn: async () => {
+      if (!selectedStudent?.user_id) return [];
+
+      const { data, error } = await supabase
+        .from("student_university_selections")
+        .select("university_name, country")
+        .eq("student_id", selectedStudent.user_id);
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedStudent?.user_id,
+  });
+
+  const [universitiesSearch, setUniversitiesSearch] = useState("");
   const [universitiesPage, setUniversitiesPage] = useState(0);
   const [hasSearched, setHasSearched] = useState(false);
 
   const { data: universities, isLoading: universitiesLoading } = useQuery({
-    queryKey: ['admin-universities', universitiesSearch, universitiesPage],
+    queryKey: ["admin-universities", universitiesSearch, universitiesPage],
     queryFn: async () => {
       if (!hasSearched || !universitiesSearch.trim()) return [];
-      
+
       const { data, error } = await supabase
-        .from('universities')
-        .select('*')
+        .from("universities")
+        .select("*")
         .or(`university.ilike.%${universitiesSearch}%,country.ilike.%${universitiesSearch}%`)
         .range(universitiesPage * 25, (universitiesPage + 1) * 25 - 1);
+
       if (error) throw error;
-      
-      // Group by university and count courses
+
       const grouped = data.reduce((acc: Record<string, any>, uni: any) => {
         const key = `${uni.university}-${uni.country}`;
         if (!acc[key]) {
@@ -252,7 +334,7 @@ export default function AdminDashboard() {
             university_name: uni.university,
             country: uni.country,
             course_count: 0,
-            courses: new Set()
+            courses: new Set(),
           };
         }
         if (uni.course_title) {
@@ -261,14 +343,14 @@ export default function AdminDashboard() {
         }
         return acc;
       }, {});
-      
+
       return Object.values(grouped).map((uni: any) => ({
         university_name: uni.university_name,
         country: uni.country,
-        course_count: uni.course_count
+        course_count: uni.course_count,
       }));
     },
-    enabled: hasSearched && !!universitiesSearch.trim()
+    enabled: hasSearched && !!universitiesSearch.trim(),
   });
 
   const handleUniversitySearch = () => {
@@ -281,18 +363,15 @@ export default function AdminDashboard() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Admin Dashboard</h1>
         <div className="flex gap-2">
-          <Button 
-            variant="outline"
-            onClick={() => navigate('/admin/users')}
-          >
+          <Button variant="outline" onClick={() => navigate("/admin/users")}>
             <Shield className="h-4 w-4 mr-2" />
             Manage Admins
           </Button>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => {
               supabase.auth.signOut();
-              navigate('/login');
+              navigate("/login");
             }}
           >
             Sign Out
@@ -310,13 +389,8 @@ export default function AdminDashboard() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          {/* KPI Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-            >
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
               <Card className="kpi-card">
                 <CardContent className="p-6">
                   <div className="flex items-center space-x-4">
@@ -325,20 +399,16 @@ export default function AdminDashboard() {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Unique Universities</p>
-                       <p className="text-2xl font-bold">
-                         {universityCountLoading ? <Skeleton className="h-8 w-16" /> : 185}
-                       </p>
+                      <p className="text-2xl font-bold">
+                        {universityCountLoading ? <Skeleton className="h-8 w-16" /> : 185}
+                      </p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
               <Card className="kpi-card">
                 <CardContent className="p-6">
                   <div className="flex items-center space-x-4">
@@ -347,20 +417,16 @@ export default function AdminDashboard() {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Total Courses</p>
-                       <p className="text-2xl font-bold">
-                         {courseCountLoading ? <Skeleton className="h-8 w-16" /> : courseCount}
-                       </p>
+                      <p className="text-2xl font-bold">
+                        {courseCountLoading ? <Skeleton className="h-8 w-16" /> : courseCount}
+                      </p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-            >
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
               <Card className="kpi-card">
                 <CardContent className="p-6">
                   <div className="flex items-center space-x-4">
@@ -369,9 +435,9 @@ export default function AdminDashboard() {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">University Countries</p>
-                        <p className="text-2xl font-bold">
-                          {countryCountLoading ? <Skeleton className="h-8 w-16" /> : 6}
-                        </p>
+                      <p className="text-2xl font-bold">
+                        {countryCountLoading ? <Skeleton className="h-8 w-16" /> : 6}
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -379,7 +445,6 @@ export default function AdminDashboard() {
             </motion.div>
           </div>
 
-          {/* Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <Card>
               <CardHeader>
@@ -393,13 +458,7 @@ export default function AdminDashboard() {
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={levelOfStudyData}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
-                        dataKey="name" 
-                        tick={{ fontSize: 12 }}
-                        angle={-45}
-                        textAnchor="end"
-                        height={80}
-                      />
+                      <XAxis dataKey="name" tick={{ fontSize: 12 }} angle={-45} textAnchor="end" height={80} />
                       <YAxis />
                       <Tooltip />
                       <Bar dataKey="value" fill="hsl(var(--primary))" />
@@ -502,86 +561,80 @@ export default function AdminDashboard() {
                 </div>
               ) : pendingApplications && pendingApplications.length > 0 ? (
                 <div className="space-y-4">
-                   <Table>
-                     <TableHeader>
-                       <TableRow>
-                         <TableHead>Name</TableHead>
-                         <TableHead>Email</TableHead>
-                         <TableHead>Nationality</TableHead>
-                         <TableHead>Gender</TableHead>
-                         <TableHead>Level</TableHead>
-                         <TableHead>Country</TableHead>
-                         <TableHead>Registered</TableHead>
-                         <TableHead>Actions</TableHead>
-                       </TableRow>
-                     </TableHeader>
-                     <TableBody>
-                        {pendingApplications.map((application) => (
-                          <TableRow 
-                            key={application.user_id}
-                            className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => setSelectedPendingStudent(application)}
-                          >
-                            <TableCell>{`${application.first_name} ${application.last_name}`}</TableCell>
-                            <TableCell>{application.email}</TableCell>
-                            <TableCell>{application.nationality}</TableCell>
-                            <TableCell>{application.gender}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{application.level_of_study}</Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="secondary">{application.preferred_country}</Badge>
-                            </TableCell>
-                            <TableCell>
-                              {new Date(application.created_at).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell onClick={(e) => e.stopPropagation()}>
-                              <div className="flex space-x-2">
-                                <Button
-                                  size="sm"
-                                  onClick={() => approveMutation.mutate(application.user_id)}
-                                  disabled={approveMutation.isPending}
-                                  className="bg-success hover:bg-success/90"
-                                >
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                  Approve
-                                </Button>
-                                <Dialog>
-                                  <DialogTrigger asChild>
-                                    <Button
-                                      size="sm"
-                                      variant="destructive"
-                                      disabled={rejectMutation.isPending}
-                                    >
-                                      <XCircle className="h-4 w-4 mr-1" />
-                                      Reject
-                                    </Button>
-                                  </DialogTrigger>
-                                  <DialogContent>
-                                    <DialogHeader>
-                                      <DialogTitle>Reject Application</DialogTitle>
-                                      <DialogDescription>
-                                        Are you sure you want to reject this application?
-                                      </DialogDescription>
-                                    </DialogHeader>
-                                    <div className="flex justify-end space-x-2">
-                                      <Button
-                                        variant="destructive"
-                                        onClick={() => rejectMutation.mutate({ userId: application.user_id })}
-                                      >
-                                        Confirm Reject
-                                      </Button>
-                                    </div>
-                                  </DialogContent>
-                                </Dialog>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                     </TableBody>
-                   </Table>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Nationality</TableHead>
+                        <TableHead>Gender</TableHead>
+                        <TableHead>Level</TableHead>
+                        <TableHead>Country</TableHead>
+                        <TableHead>Registered</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {pendingApplications.map((application) => (
+                        <TableRow
+                          key={application.user_id}
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => setSelectedPendingStudent(application)}
+                        >
+                          <TableCell>{`${application.first_name} ${application.last_name}`}</TableCell>
+                          <TableCell>{application.email}</TableCell>
+                          <TableCell>{application.nationality}</TableCell>
+                          <TableCell>{application.gender}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{application.level_of_study}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{application.preferred_country}</Badge>
+                          </TableCell>
+                          <TableCell>{new Date(application.created_at).toLocaleDateString()}</TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            <div className="flex space-x-2">
+                              <Button
+                                size="sm"
+                                onClick={() => approveMutation.mutate(application)}
+                                disabled={approveMutation.isPending}
+                                className="bg-success hover:bg-success/90"
+                              >
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                Approve
+                              </Button>
 
-                  {/* Pagination */}
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button size="sm" variant="destructive" disabled={rejectMutation.isPending}>
+                                    <XCircle className="h-4 w-4 mr-1" />
+                                    Reject
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>Reject Application</DialogTitle>
+                                    <DialogDescription>
+                                      Are you sure you want to reject this application?
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <div className="flex justify-end space-x-2">
+                                    <Button
+                                      variant="destructive"
+                                      onClick={() => rejectMutation.mutate(application)}
+                                    >
+                                      Confirm Reject
+                                    </Button>
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+
                   <div className="flex justify-between items-center">
                     <Button
                       variant="outline"
@@ -591,9 +644,7 @@ export default function AdminDashboard() {
                       <ChevronLeft className="h-4 w-4 mr-1" />
                       Previous
                     </Button>
-                    <span className="text-sm text-muted-foreground">
-                      Page {pendingPage + 1}
-                    </span>
+                    <span className="text-sm text-muted-foreground">Page {pendingPage + 1}</span>
                     <Button
                       variant="outline"
                       onClick={() => setPendingPage(pendingPage + 1)}
@@ -607,15 +658,12 @@ export default function AdminDashboard() {
               ) : (
                 <Alert>
                   <Clock className="h-4 w-4" />
-                  <AlertDescription>
-                    No pending applications at this time.
-                  </AlertDescription>
+                  <AlertDescription>No pending applications at this time.</AlertDescription>
                 </Alert>
               )}
             </CardContent>
           </Card>
 
-          {/* Pending Student Detail Drawer */}
           <Drawer open={!!selectedPendingStudent} onOpenChange={() => setSelectedPendingStudent(null)}>
             <DrawerContent className="max-h-[90vh]">
               <DrawerHeader>
@@ -626,16 +674,18 @@ export default function AdminDashboard() {
                   Complete registration information and university selections
                 </DrawerDescription>
               </DrawerHeader>
+
               <div className="p-6 space-y-6 overflow-y-auto">
                 {selectedPendingStudent && (
                   <>
-                    {/* Student Info */}
                     <div>
                       <h3 className="text-lg font-semibold mb-3">Student Information</h3>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="text-sm font-medium text-muted-foreground">Name</label>
-                          <p className="text-sm">{selectedPendingStudent.first_name} {selectedPendingStudent.last_name}</p>
+                          <p className="text-sm">
+                            {selectedPendingStudent.first_name} {selectedPendingStudent.last_name}
+                          </p>
                         </div>
                         <div>
                           <label className="text-sm font-medium text-muted-foreground">Email</label>
@@ -651,31 +701,37 @@ export default function AdminDashboard() {
                         </div>
                         <div>
                           <label className="text-sm font-medium text-muted-foreground">Registration Date</label>
-                          <p className="text-sm">{new Date(selectedPendingStudent.created_at).toLocaleDateString()}</p>
+                          <p className="text-sm">
+                            {new Date(selectedPendingStudent.created_at).toLocaleDateString()}
+                          </p>
                         </div>
                       </div>
                     </div>
 
-                    {/* Preferences */}
                     <div>
                       <h3 className="text-lg font-semibold mb-3">Study Preferences</h3>
                       <div className="grid grid-cols-3 gap-4">
                         <div>
                           <label className="text-sm font-medium text-muted-foreground">Level of Study</label>
-                          <Badge variant="outline" className="mt-1">{selectedPendingStudent.level_of_study}</Badge>
+                          <Badge variant="outline" className="mt-1">
+                            {selectedPendingStudent.level_of_study}
+                          </Badge>
                         </div>
                         <div>
                           <label className="text-sm font-medium text-muted-foreground">Preferred Country</label>
-                          <Badge variant="secondary" className="mt-1">{selectedPendingStudent.preferred_country}</Badge>
+                          <Badge variant="secondary" className="mt-1">
+                            {selectedPendingStudent.preferred_country}
+                          </Badge>
                         </div>
                         <div>
                           <label className="text-sm font-medium text-muted-foreground">Field of Study</label>
-                          <Badge variant="outline" className="mt-1">{selectedPendingStudent.field_of_study}</Badge>
+                          <Badge variant="outline" className="mt-1">
+                            {selectedPendingStudent.field_of_study}
+                          </Badge>
                         </div>
                       </div>
                     </div>
 
-                    {/* University Selections */}
                     <div>
                       <h3 className="text-lg font-semibold mb-3">Selected Universities</h3>
                       {selectedStudentUniversities && selectedStudentUniversities.length > 0 ? (
@@ -684,7 +740,9 @@ export default function AdminDashboard() {
                             <Card key={index}>
                               <CardContent className="p-4">
                                 <h4 className="font-medium">{uni.university_name}</h4>
-                                <Badge variant="outline" className="mt-1 text-xs">{uni.country}</Badge>
+                                <Badge variant="outline" className="mt-1 text-xs">
+                                  {uni.country}
+                                </Badge>
                               </CardContent>
                             </Card>
                           ))}
@@ -694,11 +752,10 @@ export default function AdminDashboard() {
                       )}
                     </div>
 
-                    {/* Actions */}
                     <div className="flex space-x-3 pt-4 border-t">
                       <Button
                         onClick={() => {
-                          approveMutation.mutate(selectedPendingStudent.user_id);
+                          approveMutation.mutate(selectedPendingStudent);
                           setSelectedPendingStudent(null);
                         }}
                         disabled={approveMutation.isPending}
@@ -707,6 +764,7 @@ export default function AdminDashboard() {
                         <CheckCircle className="h-4 w-4 mr-1" />
                         Approve Application
                       </Button>
+
                       <Dialog>
                         <DialogTrigger asChild>
                           <Button variant="destructive" disabled={rejectMutation.isPending}>
@@ -725,7 +783,7 @@ export default function AdminDashboard() {
                             <Button
                               variant="destructive"
                               onClick={() => {
-                                rejectMutation.mutate({ userId: selectedPendingStudent.user_id });
+                                rejectMutation.mutate(selectedPendingStudent);
                                 setSelectedPendingStudent(null);
                               }}
                             >
@@ -750,10 +808,13 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="flex space-x-4 mb-4">
-                <Select value={studentsStatus} onValueChange={(value: 'approved' | 'rejected') => {
-                  setStudentsStatus(value);
-                  setStudentsPage(0);
-                }}>
+                <Select
+                  value={studentsStatus}
+                  onValueChange={(value: "approved" | "rejected") => {
+                    setStudentsStatus(value);
+                    setStudentsPage(0);
+                  }}
+                >
                   <SelectTrigger className="w-48">
                     <SelectValue />
                   </SelectTrigger>
@@ -762,6 +823,7 @@ export default function AdminDashboard() {
                     <SelectItem value="rejected">Rejected</SelectItem>
                   </SelectContent>
                 </Select>
+
                 <div className="flex-1 max-w-md">
                   <Input
                     placeholder="Search by name or email..."
@@ -794,28 +856,27 @@ export default function AdminDashboard() {
                         <TableHead>Field</TableHead>
                       </TableRow>
                     </TableHeader>
-                     <TableBody>
-                        {students.map((student) => (
-                          <TableRow 
-                            key={student.user_id}
-                            className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => setSelectedStudent(student)}
-                          >
-                            <TableCell>{`${student.first_name} ${student.last_name}`}</TableCell>
-                            <TableCell>{student.email}</TableCell>
-                            <TableCell>{student.nationality}</TableCell>
-                            <TableCell>{student.gender}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{student.level_of_study}</Badge>
-                            </TableCell>
-                            <TableCell>{student.preferred_country}</TableCell>
-                            <TableCell>{student.field_of_study}</TableCell>
-                          </TableRow>
-                        ))}
+                    <TableBody>
+                      {students.map((student) => (
+                        <TableRow
+                          key={student.user_id}
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => setSelectedStudent(student)}
+                        >
+                          <TableCell>{`${student.first_name} ${student.last_name}`}</TableCell>
+                          <TableCell>{student.email}</TableCell>
+                          <TableCell>{student.nationality}</TableCell>
+                          <TableCell>{student.gender}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{student.level_of_study}</Badge>
+                          </TableCell>
+                          <TableCell>{student.preferred_country}</TableCell>
+                          <TableCell>{student.field_of_study}</TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
 
-                  {/* Pagination */}
                   <div className="flex justify-between items-center">
                     <Button
                       variant="outline"
@@ -825,9 +886,7 @@ export default function AdminDashboard() {
                       <ChevronLeft className="h-4 w-4 mr-1" />
                       Previous
                     </Button>
-                    <span className="text-sm text-muted-foreground">
-                      Page {studentsPage + 1}
-                    </span>
+                    <span className="text-sm text-muted-foreground">Page {studentsPage + 1}</span>
                     <Button
                       variant="outline"
                       onClick={() => setStudentsPage(studentsPage + 1)}
@@ -841,15 +900,12 @@ export default function AdminDashboard() {
               ) : (
                 <Alert>
                   <Users className="h-4 w-4" />
-                  <AlertDescription>
-                    No {studentsStatus} students found.
-                  </AlertDescription>
+                  <AlertDescription>No {studentsStatus} students found.</AlertDescription>
                 </Alert>
               )}
             </CardContent>
           </Card>
 
-          {/* Student Detail Drawer */}
           <Drawer open={!!selectedStudent} onOpenChange={() => setSelectedStudent(null)}>
             <DrawerContent className="max-h-[90vh]">
               <DrawerHeader>
@@ -860,16 +916,18 @@ export default function AdminDashboard() {
                   Complete student information and university selections
                 </DrawerDescription>
               </DrawerHeader>
+
               <div className="p-6 space-y-6 overflow-y-auto">
                 {selectedStudent && (
                   <>
-                    {/* Student Info */}
                     <div>
                       <h3 className="text-lg font-semibold mb-3">Student Information</h3>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="text-sm font-medium text-muted-foreground">Name</label>
-                          <p className="text-sm">{selectedStudent.first_name} {selectedStudent.last_name}</p>
+                          <p className="text-sm">
+                            {selectedStudent.first_name} {selectedStudent.last_name}
+                          </p>
                         </div>
                         <div>
                           <label className="text-sm font-medium text-muted-foreground">Email</label>
@@ -885,39 +943,45 @@ export default function AdminDashboard() {
                         </div>
                         <div>
                           <label className="text-sm font-medium text-muted-foreground">Status</label>
-                          <Badge variant={studentsStatus === 'approved' ? 'default' : 'destructive'} className="mt-1">
+                          <Badge variant={studentsStatus === "approved" ? "default" : "destructive"} className="mt-1">
                             {studentsStatus}
                           </Badge>
                         </div>
                         {selectedStudent.created_at && (
                           <div>
                             <label className="text-sm font-medium text-muted-foreground">Registration Date</label>
-                            <p className="text-sm">{new Date(selectedStudent.created_at).toLocaleDateString()}</p>
+                            <p className="text-sm">
+                              {new Date(selectedStudent.created_at).toLocaleDateString()}
+                            </p>
                           </div>
                         )}
                       </div>
                     </div>
 
-                    {/* Preferences */}
                     <div>
                       <h3 className="text-lg font-semibold mb-3">Study Preferences</h3>
                       <div className="grid grid-cols-3 gap-4">
                         <div>
                           <label className="text-sm font-medium text-muted-foreground">Level of Study</label>
-                          <Badge variant="outline" className="mt-1">{selectedStudent.level_of_study}</Badge>
+                          <Badge variant="outline" className="mt-1">
+                            {selectedStudent.level_of_study}
+                          </Badge>
                         </div>
                         <div>
                           <label className="text-sm font-medium text-muted-foreground">Preferred Country</label>
-                          <Badge variant="secondary" className="mt-1">{selectedStudent.preferred_country}</Badge>
+                          <Badge variant="secondary" className="mt-1">
+                            {selectedStudent.preferred_country}
+                          </Badge>
                         </div>
                         <div>
                           <label className="text-sm font-medium text-muted-foreground">Field of Study</label>
-                          <Badge variant="outline" className="mt-1">{selectedStudent.field_of_study}</Badge>
+                          <Badge variant="outline" className="mt-1">
+                            {selectedStudent.field_of_study}
+                          </Badge>
                         </div>
                       </div>
                     </div>
 
-                    {/* University Selections */}
                     <div>
                       <h3 className="text-lg font-semibold mb-3">Selected Universities</h3>
                       {selectedApprovedStudentUniversities && selectedApprovedStudentUniversities.length > 0 ? (
@@ -926,7 +990,9 @@ export default function AdminDashboard() {
                             <Card key={index}>
                               <CardContent className="p-4">
                                 <h4 className="font-medium">{uni.university_name}</h4>
-                                <Badge variant="outline" className="mt-1 text-xs">{uni.country}</Badge>
+                                <Badge variant="outline" className="mt-1 text-xs">
+                                  {uni.country}
+                                </Badge>
                               </CardContent>
                             </Card>
                           ))}
@@ -959,7 +1025,7 @@ export default function AdminDashboard() {
                     placeholder="Search universities by name or country..."
                     value={universitiesSearch}
                     onChange={(e) => setUniversitiesSearch(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleUniversitySearch()}
+                    onKeyDown={(e) => e.key === "Enter" && handleUniversitySearch()}
                   />
                 </div>
                 <Button onClick={handleUniversitySearch} disabled={universitiesLoading}>
@@ -996,7 +1062,6 @@ export default function AdminDashboard() {
                     ))}
                   </div>
 
-                  {/* Pagination */}
                   <div className="flex justify-between items-center">
                     <Button
                       variant="outline"
@@ -1006,9 +1071,7 @@ export default function AdminDashboard() {
                       <ChevronLeft className="h-4 w-4 mr-1" />
                       Previous
                     </Button>
-                    <span className="text-sm text-muted-foreground">
-                      Page {universitiesPage + 1}
-                    </span>
+                    <span className="text-sm text-muted-foreground">Page {universitiesPage + 1}</span>
                     <Button
                       variant="outline"
                       onClick={() => setUniversitiesPage(universitiesPage + 1)}
@@ -1022,16 +1085,12 @@ export default function AdminDashboard() {
               ) : hasSearched ? (
                 <Alert>
                   <Search className="h-4 w-4" />
-                  <AlertDescription>
-                    No universities found matching your search criteria.
-                  </AlertDescription>
+                  <AlertDescription>No universities found matching your search criteria.</AlertDescription>
                 </Alert>
               ) : (
                 <Alert>
                   <Search className="h-4 w-4" />
-                  <AlertDescription>
-                    Enter a search term to find universities.
-                  </AlertDescription>
+                  <AlertDescription>Enter a search term to find universities.</AlertDescription>
                 </Alert>
               )}
             </CardContent>

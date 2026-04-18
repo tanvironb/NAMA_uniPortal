@@ -292,7 +292,7 @@ export default function RegisterWizard() {
         email: formData.email,
         password: formData.password,
         options: {
-          emailRedirectTo: "http://localhost:8081/login",
+          emailRedirectTo: "https://uni-scholarship.namafoundation.org/login",
           data: {
             full_name: formData.fullName,
             first_name: formData.firstName,

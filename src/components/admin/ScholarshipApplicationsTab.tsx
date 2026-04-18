@@ -45,20 +45,19 @@ export function ScholarshipApplicationsTab() {
 
   const approveMutation = useMutation({
     mutationFn: async ({ appId, note }: { appId: string; note: string }) => {
-      const { data: app } = await supabase
+      const { data: app, error: appError } = await supabase
         .from("scholarship_applications")
-        .select("student_id")
+        .select("*")
         .eq("id", appId)
         .single();
 
+      if (appError) throw appError;
       if (!app) throw new Error("Application not found");
 
-      // Generate serial code
       const { data: serialData, error: serialError } = await supabase.rpc("generate_serial_code");
       if (serialError || !serialData) throw new Error("Failed to generate serial code");
       const serialCode = serialData as string;
 
-      // Compute auth signature
       const { data: signatureData, error: signatureError } = await supabase.rpc(
         "compute_auth_signature",
         { serial: serialCode, app_id: appId }
@@ -66,7 +65,6 @@ export function ScholarshipApplicationsTab() {
       if (signatureError || !signatureData) throw new Error("Failed to compute signature");
       const authSignature = signatureData as string;
 
-      // Create certificate record
       const { error: certError } = await supabase
         .from("certificates")
         .insert({
@@ -74,12 +72,11 @@ export function ScholarshipApplicationsTab() {
           student_id: app.student_id,
           serial_code: serialCode,
           auth_signature: authSignature,
-          storage_path: "", // Not used for on-demand generation
+          storage_path: "",
         });
 
       if (certError) throw certError;
 
-      // Update application status
       const { error: updateError } = await supabase
         .from("scholarship_applications")
         .update({
@@ -90,6 +87,19 @@ export function ScholarshipApplicationsTab() {
         .eq("id", appId);
 
       if (updateError) throw updateError;
+
+      const { error: emailError } = await supabase.functions.invoke("send-status-email", {
+        body: {
+          email: app.email,
+          firstName: app.full_name?.split(" ")[0] || "",
+          lastName: app.full_name?.split(" ").slice(1).join(" ") || "",
+          status: "scholarship_approved",
+        },
+      });
+
+      if (emailError) {
+        console.error("Scholarship approval email error:", emailError);
+      }
     },
     onSuccess: () => {
       toast.success("Application approved");
@@ -105,6 +115,15 @@ export function ScholarshipApplicationsTab() {
 
   const rejectMutation = useMutation({
     mutationFn: async ({ appId, note }: { appId: string; note: string }) => {
+      const { data: app, error: appError } = await supabase
+        .from("scholarship_applications")
+        .select("*")
+        .eq("id", appId)
+        .single();
+
+      if (appError) throw appError;
+      if (!app) throw new Error("Application not found");
+
       const { error } = await supabase
         .from("scholarship_applications")
         .update({
@@ -115,6 +134,19 @@ export function ScholarshipApplicationsTab() {
         .eq("id", appId);
 
       if (error) throw error;
+
+      const { error: emailError } = await supabase.functions.invoke("send-status-email", {
+        body: {
+          email: app.email,
+          firstName: app.full_name?.split(" ")[0] || "",
+          lastName: app.full_name?.split(" ").slice(1).join(" ") || "",
+          status: "scholarship_rejected",
+        },
+      });
+
+      if (emailError) {
+        console.error("Scholarship rejection email error:", emailError);
+      }
     },
     onSuccess: () => {
       toast.success("Application rejected");
@@ -209,7 +241,7 @@ export function ScholarshipApplicationsTab() {
                   <TableCell>{app.country}</TableCell>
                   <TableCell>{getStatusBadge(app.status)}</TableCell>
                   <TableCell>
-                    {app.status === 'approved' && app.certificates?.[0]?.serial_code ? (
+                    {app.status === "approved" && app.certificates?.[0]?.serial_code ? (
                       <span className="font-mono text-xs">{app.certificates[0].serial_code}</span>
                     ) : (
                       <span className="text-muted-foreground text-xs">—</span>
@@ -249,7 +281,7 @@ export function ScholarshipApplicationsTab() {
                     <span className="text-muted-foreground">Status:</span>
                     <div className="mt-1">{getStatusBadge(selectedApp.status)}</div>
                   </div>
-                  {selectedApp.status === 'approved' && selectedApp.certificates?.[0]?.serial_code && (
+                  {selectedApp.status === "approved" && selectedApp.certificates?.[0]?.serial_code && (
                     <div>
                       <span className="text-muted-foreground">Serial:</span>
                       <p className="mt-1 font-mono text-xs">{selectedApp.certificates[0].serial_code}</p>

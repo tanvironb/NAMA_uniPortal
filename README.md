@@ -144,7 +144,13 @@ deno --version
 ```
 
 ### ▶️ Install Supabase CLI
+
+```bash
 npm install -g supabase
+```
 
 ### Verify
+
+```bash
 supabase --version
+```

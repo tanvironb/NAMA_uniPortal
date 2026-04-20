@@ -149,6 +149,23 @@ deno --version
 npm install -g supabase
 ```
 
+##📥 2. Clone & Setup Project
+###Clone Repository
+```bash
+git clone https://github.com/tanvironb/NAMA_uniPortal.git
+cd NAMA_uniPortal
+```
+
+
+
+
+
+
+
+
+
+
+
 ### Verify
 
 ```bash

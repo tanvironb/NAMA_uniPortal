@@ -90,3 +90,56 @@ After installation, check:
 node -v
 npm -v
 
+
+## ▶️ Install VS Code
+
+Download and install **Visual Studio Code** from the official website:
+
+👉 https://code.visualstudio.com/
+
+
+### Verify Installation
+
+After installation, open VS Code and ensure it runs correctly.
+
+---
+
+### Recommended VS Code Extensions
+
+Install the following extensions for better development experience:
+
+- ES7+ React/Redux Snippets  
+- TypeScript and JavaScript Language Features  
+- Tailwind CSS IntelliSense  
+- ESLint  
+- Prettier  
+- Supabase  
+- Deno  
+
+To install extensions:
+1. Open VS Code  
+2. Go to Extensions (Ctrl + Shift + X)  
+3. Search and install each extension  
+
+---
+
+### ▶️ Install Deno
+Windows (PowerShell)
+```powershell
+irm https://deno.land/install.ps1 | iex
+
+```macos
+curl -fsSL https://deno.land/install.sh | sh
+
+### Verify:
+```bash
+deno --version
+
+
+### ▶️ Install Supabase CLI
+```bash
+npm install -g supabase
+
+### Verify
+```bash
+supabase --version

@@ -125,21 +125,17 @@ To install extensions:
 
 ### ▶️ Install Deno
 Windows (PowerShell)
-```powershell
 irm https://deno.land/install.ps1 | iex
 
-```macos
+macos
 curl -fsSL https://deno.land/install.sh | sh
 
 ### Verify:
-```bash
 deno --version
 
 
 ### ▶️ Install Supabase CLI
-```bash
 npm install -g supabase
 
 ### Verify
-```bash
 supabase --version

@@ -142,12 +142,22 @@ curl -fsSL https://deno.land/install.sh | sh
 ```bash
 deno --version
 ```
+---
+
 
 ### ▶️ Install Supabase CLI
 
 ```bash
 npm install -g supabase
 ```
+
+
+### Verify
+
+```bash
+supabase --version
+```
+---
 
 ##📥 2. Clone & Setup Project
 ###Clone Repository
@@ -156,18 +166,25 @@ git clone https://github.com/tanvironb/NAMA_uniPortal.git
 cd NAMA_uniPortal
 ```
 
+### Install Dependencies
+```bash
+npm install
+```
 
+## Setup Environment Variables
 
-
-
-
-
-
-
-
-
-### Verify
+### Create .env file:
 
 ```bash
-supabase --version
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_anon_key
+
+SUPABASE_URL=your_supabase_url
+SUPABASE_SERVICE_ROLE_KEY=your_service_key
 ```
+
+### Notes
+- VITE_ → frontend variables
+- Keep service keys private
+
+---

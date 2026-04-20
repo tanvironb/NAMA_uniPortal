@@ -89,14 +89,15 @@ After installation, check:
 ```bash
 node -v
 npm -v
-
+```
 
 ## ▶️ Install VS Code
 
 Download and install **Visual Studio Code** from the official website:
+```bash
 
 👉 https://code.visualstudio.com/
-
+```
 
 ### Verify Installation
 

@@ -188,3 +188,159 @@ SUPABASE_SERVICE_ROLE_KEY=your_service_key
 - Keep service keys private
 
 ---
+
+## 💻 3. Setup Node.js in VS Code
+### Steps
+1. Open project folder in VS Code
+2. Open terminal (Terminal → New Terminal)
+3. Run:
+   
+```bash
+node -v
+npm -v
+```
+4. Install dependencies:
+```bash
+npm install
+```
+
+### Recommended Extensions
+- ES7+ React Snippets
+- Tailwind CSS IntelliSense
+- ESLint
+- Prettier
+- Supabase
+- Deno
+
+---
+
+## 🧠 4. Setup Deno in VS Code
+### Steps
+1. Install Deno extension
+2. Create .vscode/settings.json
+
+```bash
+{
+  "deno.enable": true,
+  "deno.unstable": true
+}
+```
+
+---
+
+## ▶️ 5. Run Project
+### Start Development Server
+
+```bash
+npm run dev
+```
+
+### Open in Browser
+```bash
+http://localhost:8080
+```
+Requires Docker
+
+---
+
+## 📦 6. Build Production (dist)
+### Build Project
+```bash
+npm run build
+```
+
+###Output 
+```bash
+dist/
+```
+
+---
+
+## ▶️ Preview Production Build
+```bash
+npm run preview
+```
+
+---
+
+## 🔄 Development Workflow
+### Run project
+```bash
+npm install
+npm run dev
+```
+
+---
+
+### Build project
+```bash
+npm run build
+```
+
+---
+
+### Run Supabase
+```bash
+supabase start
+```
+
+---
+
+
+### Deploy Edge Functions
+```bash
+supabase functions deploy
+```
+
+---
+
+## 📜 Available Scripts
+```bash
+npm run dev
+npm run build
+npm run build:dev
+npm run lint
+npm run preview
+```
+
+---
+
+
+## ⚡ Quick Start
+
+```bash
+git clone https://github.com/tanvironb/NAMA_uniPortal.git
+cd NAMA_uniPortal
+npm install
+npm run dev
+```
+
+---
+
+
+### 📝 Notes
+- React + Vite frontend
+- Supabase backend
+- Deno for Edge Functions
+- Resend API for emails
+- Use dist/ for deployment
+
+
+---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

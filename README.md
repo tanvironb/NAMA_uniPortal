@@ -249,7 +249,7 @@ Requires Docker
 npm run build
 ```
 
-###Output 
+Output 
 ```bash
 dist/
 ```
